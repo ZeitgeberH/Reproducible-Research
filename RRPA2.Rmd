@@ -1,3 +1,11 @@
+---
+title       : Storm data report
+subtitle    : 
+author      : ZeitgeberH 
+
+---
+
+
 Title: Your document should have a title that briefly summarizes your data analysis
 ========================================================
 
@@ -7,24 +15,104 @@ Immediately after the title, there should be a synopsis which describes and summ
 ## Introduction
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
-This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+In this report, we want to address the following questions:
 
-## Assignment
+- Across the United States, which types of events are most harmful with respect to population health?
 
-The basic goal of this assignment is to explore the NOAA Storm Database and answer some basic questions about severe weather events. You must use the database to answer the questions below and show the code for your entire analysis. Your analysis can consist of tables, figures, or other summaries. You may use any R package you want to support your analysis.
+- Across the United States, which types of events have the greatest economic consequences?
 
+We will use the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database for original data. Data analysis was done in R. Report was written with [Knitr](http://yihui.name/knitr/) in [RStudio](https://www.rstudio.com/).
 
-## Questions
-Your data analysis must address the following questions:
+## Data
 
-Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to popuulation health?
+The original data comes from [the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database](http://www.ncdc.noaa.gov/data-access).This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. 
 
-Across the United States, which types of events have the greatest economic consequences?
+[The Reproducible research course](https://www.coursera.org/course/repdata) in Coursera provided a dataset from this database. It comes in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from the course web site:[Data [47Mb]](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2), or you can download it from [my repository](https://github.com/ZeitgeberH/Reproducible-Research).
 
-Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
+
+- National Weather Service Storm [Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf ) 
+- National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
 
 ## Data Processing
+
+This is a large dataset. For our purpose, we don't even need to load the entire dataset into memory.What we need is to figure out which colomns contain the data we want and just load these colomns.So we load the first ten rows of the data from the CSV file.
+
+```{r Figure out columns}
+StormData <- read.csv(file="repdata-data-StormData.csv",nrows=2)
+head(StormData)
+```
+We see there are `r ncol(StormData1)` columns. What we are interested in this report are following columns:
+
+For population health: **FATALITIES** and **INJURIES**. These are the numbers of fatalities and injuries in a event.
+
+For economic consequences: **PROPDMG** and **CROPDMG**. These are the property damage and crop damage in a event.
+
+Lets get column number of these columns.
+```{r}
+ColN <- colnames(StormData) ## column names
+
+# Fcol<-which(ColN=="FATALITIES") ## col number for fatalitis
+# Icol<-which(ColN=="INJURIES") ## col number for injuries
+# Pcol<-which(ColN=="PROPDMG") ## col number for property damage
+# Ccol<-which(ColN=="CROPDMG") ## col number for crop damage
+
+## create a Null vector, give 'NA' to these four columns
+thecols <-c("FATALITIES","INJURIES","PROPDMG","CROPDMG") 
+thecolsIndex<-match(thecols,ColN)
+NewColN<-rep("NULL",length(ColN))
+NewColN[thecolsIndex]<-NA
+
+## real rows in Excel is 903871
+
+system.time(StormData <- read.csv(file="repdata-data-StormData.csv",comment.char="",quote="",row.names = NULL,blank.lines.skip=TRUE,colClasses=NewColN))
+
+StormData1<-as.numeric(StormData[,4])
+aa<-StormData1[!is.na(StormData1)]
+length(aa)
+#1:  902573
+#2:  902688
+#3:  902667
+#4:  902365
+#  user  system elapsed 
+#  108.54    2.30  112.01 
+#  dim(StormData)
+# [1] 1769569       4
+
+
+
+## read data, only columns with "NA" are readed
+# system.time(StormData <- read.csv(file="repdata-data-StormData.csv",comment.char="",quote="",row.names = NULL,stringsAsFactors=FALSE))
+# user  system elapsed 
+#  155.94    3.98  235.21 
+#  dim(StormData)
+# [1] 1773320      37
+
+
+# system.time(StormData <- read.csv(file="repdata-data-StormData.csv"))
+#  user  system elapsed 
+#  571.83    3.20  589.57 
+#  dim(StormData)
+# [1] 692288     37
+
+# scan(pipe("cut -f1 -d, repdata-data-StormData.csv"))
+# Error in scan(file, what, nmax, sep, dec, quote, skip, nlines, na.strings,  : 
+#   scan() expected 'a real', got '"STATE__"'
+```
+
+
+
+
+
+Loading data
+```{r Load data}
+
+
+```
+
 There should be a section titled Data Processing which describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the cache = TRUE option for certain code chunks.
 
 
@@ -37,11 +125,9 @@ You may have other sections in your analysis, but Data Processing and Results ar
 
 The analysis document must have **at least one figure** containing a plot.
 
-Your analyis must have **no more than three figures**. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+Your analysis must have **no more than three figures**. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
 
 You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that echo = TRUE for every code chunk (this is the default setting in knitr)
 
 ## Resources
-- [National Weather Service](http://www.weather.gov/)
-- National Weather Service Storm [Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf ) 
-- National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
