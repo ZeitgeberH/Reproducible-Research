@@ -1,12 +1,11 @@
 ---
 title       : Storm data report
-subtitle    : 
 author      : ZeitgeberH 
 
 ---
 
 
-Title: Your document should have a title that briefly summarizes your data analysis
+Tornadoes is the leading cause of human loss and economic consequence 
 ========================================================
 
 ## Synopsis
@@ -17,9 +16,9 @@ Storms and other severe weather events can cause both public health and economic
 
 In this report, we want to address the following questions:
 
-- Across the United States, which types of events are most harmful with respect to population health?
+- **Across the United States, which types of events are most harmful with respect to population health?**
 
-- Across the United States, which types of events have the greatest economic consequences?
+- **Across the United States, which types of events have the greatest economic consequences?**
 
 We will use the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database for original data. Data analysis was done in R. Report was written with [Knitr](http://yihui.name/knitr/) in [RStudio](https://www.rstudio.com/).
 
@@ -39,13 +38,15 @@ There is also some documentation of the database available. Here you will find h
 
 ## Data Processing
 
-This is a large dataset. For our purpose, we don't even need to load the entire dataset into memory.What we need is to figure out which colomns contain the data we want and just load these colomns.So we load the first ten rows of the data from the CSV file.
+First, we need to figure out which colomns contain the data we want and just load these colomns.So we load the first 2rows of the data from the CSV file.
 
 ```{r Figure out columns}
 StormData <- read.csv(file="repdata-data-StormData.csv",nrows=2)
 head(StormData)
 ```
-We see there are `r ncol(StormData1)` columns. What we are interested in this report are following columns:
+We see there are `r ncol(StormData)` columns. What we are interested in this report are following columns:
+
+For event type: **EVETPE**
 
 For population health: **FATALITIES** and **INJURIES**. These are the numbers of fatalities and injuries in a event.
 
@@ -55,70 +56,262 @@ Lets get column number of these columns.
 ```{r}
 ColN <- colnames(StormData) ## column names
 
-# Fcol<-which(ColN=="FATALITIES") ## col number for fatalitis
-# Icol<-which(ColN=="INJURIES") ## col number for injuries
-# Pcol<-which(ColN=="PROPDMG") ## col number for property damage
-# Ccol<-which(ColN=="CROPDMG") ## col number for crop damage
-
-## create a Null vector, give 'NA' to these four columns
-thecols <-c("FATALITIES","INJURIES","PROPDMG","CROPDMG") 
-thecolsIndex<-match(thecols,ColN)
-NewColN<-rep("NULL",length(ColN))
-NewColN[thecolsIndex]<-NA
-
-## real rows in Excel is 903871
-
-system.time(StormData <- read.csv(file="repdata-data-StormData.csv",comment.char="",quote="",row.names = NULL,blank.lines.skip=TRUE,colClasses=NewColN))
-
-StormData1<-as.numeric(StormData[,4])
-aa<-StormData1[!is.na(StormData1)]
-length(aa)
-#1:  902573
-#2:  902688
-#3:  902667
-#4:  902365
-#  user  system elapsed 
-#  108.54    2.30  112.01 
-#  dim(StormData)
-# [1] 1769569       4
-
-
-
-## read data, only columns with "NA" are readed
-# system.time(StormData <- read.csv(file="repdata-data-StormData.csv",comment.char="",quote="",row.names = NULL,stringsAsFactors=FALSE))
-# user  system elapsed 
-#  155.94    3.98  235.21 
-#  dim(StormData)
-# [1] 1773320      37
-
-
-# system.time(StormData <- read.csv(file="repdata-data-StormData.csv"))
-#  user  system elapsed 
-#  571.83    3.20  589.57 
-#  dim(StormData)
-# [1] 692288     37
-
-# scan(pipe("cut -f1 -d, repdata-data-StormData.csv"))
-# Error in scan(file, what, nmax, sep, dec, quote, skip, nlines, na.strings,  : 
-#   scan() expected 'a real', got '"STATE__"'
-```
-
-
-
-
-
-Loading data
-```{r Load data}
+Ecol<-which(ColN=="EVTYPE")
+Fcol<-which(ColN=="FATALITIES") ## col number for fatalitis
+Icol<-which(ColN=="INJURIES") ## col number for injuries
+Pcol<-which(ColN=="PROPDMG") ## col number for property damage
+Ccol<-which(ColN=="CROPDMG") ## col number for crop damage
 
 
 ```
 
-There should be a section titled Data Processing which describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the cache = TRUE option for certain code chunks.
+Now, load data
+```{r Load data,cache=TRUE}
+
+theList<-rep(list("Character"),length(ColN))
+
+DF<-scan("repdata-data-StormData.csv",what=theList,sep=",",skip=1)
+
+## extract Year of the event
+Date<-DF[[2]] 
+Date<-as.Date.character(Date,"%m/%d/%Y %H:%M:%S")
+Date<-format(Date,"%Y")
+
+## create a dataframe with 6 columns:date, eventype,
+## Fatalitis, Injuries, property damage and crop damage
+Mydata<-data.frame(Date=Date,Type=DF[[Ecol]],Fd=as.numeric(DF[[Fcol]]),Id=as.numeric(DF[[Icol]]),Pd=as.numeric(DF[[Pcol]]),Cd=as.numeric(DF[[Ccol]]))
+
+## clean it
+Mydata<-Mydata[-which(Mydata[,2]=="?"),]
+rm(DF)
+```
+Dimension of this dataset is:
+```{r Data_talbe1}
+dim(Mydata)
+```
+Later, when we looked at the data. We found that **THUNDERSTORM WIND** has at least three other names **TSTM WIND** ,**THUNDERSTORMW**, and **THUNDERSTORM WINDS** in this dataset. They should be combined and named as **THUNDERSTORM WIND**
+```{r}
+Name1<-which(Mydata$Type=="TSTM WIND")
+Name2<-which(Mydata$Type=="THUNDERSTORM WINDS")
+Name3<-which(Mydata$Type=="THUNDERSTORMW")
+Mydata$Type[c(Name1,Name2,Name3)]<-"THUNDERSTORM WIND"
+```
+
+
+We use **dplyr** package to group and summarize data.
+```{r dplyr}
+
+suppressPackageStartupMessages(library(dplyr))
+
+Mydata1<-Mydata %.% # group data by Type
+         group_by(Type) %.% # summary of total events, total fatalities, total...
+         summarise(n=n(),sum_F=sum(Fd),sum_I=sum(Id),sum_P=sum(Pd),sum_C=sum(Cd)) %.%
+          mutate(sum_Health=sum_F+sum_I,sum_Damage=sum_P+sum_C,avg_H=sum_Health/n,avg_D=sum_Damage/n)
+
+```
+
+
+**Mydata1** contains data summary for both human loss and enconomic death across USA between year 1950 and 2005. We arrange the dataframe acorrding to human loss and encomic death respectively. 
+
+```{r }
+DF_H<-arrange(Mydata1,desc(sum_Health))
+# arrange factor as the order of health record
+DF_H$Type <- factor(DF_H$Type, levels=unique(DF_H$Type), ordered=TRUE)
+
+
+DF_D<-arrange(Mydata1,desc(sum_Damage))
+# arrange factor as the order of damage record
+DF_D$Type <- factor(DF_D$Type, levels=unique(DF_D$Type), ordered=TRUE)
+
+
+DF_HA<-arrange(Mydata1,desc(avg_H))
+# arrange factor as the order of health record
+DF_HA$Type <- factor(DF_HA$Type, levels=unique(DF_HA$Type), ordered=TRUE)
+
+
+DF_DA<-arrange(Mydata1,desc(avg_D))
+# arrange factor as the order of damage record
+DF_DA$Type <- factor(DF_DA$Type, levels=unique(DF_DA$Type), ordered=TRUE)
+
+
+```
+
+Second, we want to know what's the severe events in most recent three years.
+```{r Data_table2_top3}        
+Date_ordered<-factor(unique(Date))
+NYear<-length(Date_ordered)
+str(Date_ordered)
+Mydata2<-Mydata %.% # group data by Type and Date
+         filter(Date==Date_ordered[NYear] | Date==Date_ordered[NYear-1] | Date==Date_ordered[NYear-2]) %.%
+         group_by(Date,Type) %.% # summary of total events, total fatalities, total...
+         summarise(n=n(),sum_F=sum(Fd),sum_I=sum(Id),sum_P=sum(Pd),sum_C=sum(Cd)) %.% 
+         ## Rank by total health loss and economic damage
+         mutate(sum_Health=sum_F+sum_I,sum_Damage=sum_P+sum_C,HRank=dense_rank(-sum_Health),DRank=dense_rank(-sum_Damage)) 
+          
+# extract the higest 3 ranks
+Mydata_H<-Mydata2%.%filter(HRank<4)%.%arrange(HRank)
+Mydata_H$Type <- factor(Mydata_H$Type, levels=unique(Mydata_H$Type), ordered=TRUE)
+
+Mydata_D<-Mydata2%.%filter(DRank<4)%.%arrange(DRank)
+Mydata_D$Type <- factor(Mydata_D$Type, levels=unique(Mydata_D$Type), ordered=TRUE)
+```
+
+
+Besides, we also want to know the trend through 55 years. So we create another dataset which contains the data of leading cause of human loss or economic loss ordered by years.
+
+```{r Data_table3_trend}
+Mydata3<-Mydata %.% # group data by Type and Date
+         group_by(Type, Date) %.% # summary of total events, total fatalities, total...
+         summarise(n=n(),sum_F=sum(Fd),sum_I=sum(Id),sum_P=sum(Pd),sum_C=sum(Cd)) %.%
+         mutate(sum_Health=sum_F+sum_I,sum_Damage=sum_P+sum_C) 
+
+DF_HT<-Mydata3%.%  ## arange by total humn loss
+        filter(Type==as.character(DF_H[1,1]))%.%
+           arrange(Date)   ## select the higest human loss event type
+
+DF_DT<-Mydata3%.%
+       filter(Type==as.character(DF_D[1,1]))%.%
+       arrange(Date)
+
+```
 
 
 ## Results
-There should be a section titled Results in which your results are presented.
 
+### **`r DF_H[1,1]`** is the leading cause of human loss and economic consequences.
+First, let's look at first 100 highest human loss and first 100 higest economic loss of event through out USA across 1950 and 2005. I made a table using **googleVis** package. 
+
+```{r Table1, results='asis'}
+
+n<-100
+## It seems google  table doesn't work with Factors.
+c<-data.frame(Event=as.character(DF_H[1:n,1]),N=DF_H[1:n,2],Total_Human_Loss=DF_H[1:n,7],Average_Human_Loss=DF_H[1:n,9],Total_Economic_Loss=DF_H[1:n,8],Average_Economic_Loss=DF_H[1:n,10])
+
+suppressPackageStartupMessages(library(googleVis))
+
+op <- options(gvis.plot.tag='chart')
+
+Table <- gvisTable(c, options=list(width = 800, height = 300,page='enable'))
+
+print(Table,"chart")
+```
+#### Table 1: Total human loss and economic loss across USA between year 1950 and 2005
+
+Looking at data in Table1, It is obvious that **`r DF_H[1,1]`** is the leading cause of human loss and economic loss.
+
+To domontrate this, let's make a simple bar plot using gglot2.
+```{r Multiplot }
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  suppressPackageStartupMessages(library(grid))
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+```
+
+```{r Figure1, fig.width=12, fig.align='left'}
+suppressPackageStartupMessages(library(ggplot2))
+p1<-ggplot(DF_H[1:5,],aes(Type,sum_Health))+geom_bar(stat="identity",color="black",fill="red")+xlab(label="Event Type")+ylab(label="Total human loss")+ ggtitle('A') +theme(plot.title=element_text(size=14,hjust=0),axis.text.x = element_text(angle = 30, hjust = 1))#plot first 5 highest health records
+
+p2<-ggplot(DF_HA[1:5,],aes(Type,avg_H))+geom_bar(stat="identity",color="black",fill="red")+xlab(label="Event Type")+ylab(label="Average human loss per event")+ ggtitle('B') +theme(plot.title=element_text(size=14,hjust=0),axis.text.x = element_text(angle = 30, hjust = 1))#plot first 5 highest health records
+
+p3<-ggplot(DF_D[1:5,],aes(Type,sum_Damage))+geom_bar(stat="identity",color="black",fill="blue")+xlab(label="Event Type")+ylab(label="Total economic loss")+ ggtitle('C') +theme(plot.title=element_text(size=14,hjust=0),axis.text.x = element_text(angle = 30, hjust = 1))#plot first 5 highest damage records
+
+p4<-ggplot(DF_DA[1:5,],aes(Type,avg_D))+geom_bar(stat="identity",color="black",fill="blue")+xlab(label="Event Type")+ylab(label="Average economic loss per event")+ ggtitle('D') +theme(plot.title=element_text(size=14,hjust=0),axis.text.x = element_text(angle = 30, hjust = 1))#plot first 5 highest damage records
+
+multiplot(p1,p2,p3, p4,cols=2)
+```
+#### Figure 1. Human loss and economic loss across USA between year 1950 and 2005
+
+Again, we see that **`r DF_H[1,1]`** is the leading cause of human loss and economic loss.
+
+
+### Since 2009, TORNADO is the leading cause of human loss, while THUNDERSTORM WIND had highest economic consequence.
+
+```{r Table2_Top3, results='asis'}
+c<-data.frame(Date= Mydata_H[,1],Event=as.character(Mydata_H[,2]),N= Mydata_H[,3],Total_Human_Loss= Mydata_H[,8],HRank=Mydata_H[,10])#,DRank=Mydata2[,11])
+c2<-data.frame(Date= Mydata_D[,1],Event=as.character(Mydata_D[,2]),N= Mydata_D[,3],Total_Economic_Loss= Mydata_D[,9],DRank=Mydata_D[,11])#,DRank=Mydata2[,11])
+
+Table1 <- gvisTable(c, options=list(width = 650, height = 300,page='enable'))
+Table2 <- gvisTable(c2, options=list(width = 650, height = 300,page='enable'))
+Table12<-gvisMerge(Table1,Table2,horizontal=FALSE)
+print(Table12,"chart")
+```
+
+
+```{r Figure2, fig.width=18, fig.align='left'}
+p1<-ggplot(Mydata_H,aes(Date,sum_Health,fill=Type))+geom_bar(stat="identity",color="black",position=position_dodge())+xlab(label="Year")+ylab(label="Total human loss" )+ggtitle("Human loss for each year") 
+
+p2<-ggplot(Mydata_D,aes(Date,sum_Damage,fill=Type))+geom_bar(stat="identity",color="black",position=position_dodge())+xlab(label="Year")+ylab(label="Total Economic loss" )+ggtitle("Economic loss for each year") 
+
+multiplot(p1,p2,cols=2)
+```
+Figure2. Top 3 of events during 3 most recent years.
+
+
+### Annual number of **`r DF_H[1,1]`** seems increase since 1950.
+
+Now, we look at the trend of **`r DF_H[1,1]`** events.
+
+```{r Table3, results='asis'}
+
+Table <- gvisTable(DF_HT, options=list(width = 600, height = 280,page='enable'))
+
+print(Table,"chart")
+```
+#### Table 3: Summary of **`r DF_H[1,1]`** for  human loss and economic loss across USA since 1950.
+
+If we arrange  the above talbe as the total fatalities (column sum_Health) with descending order (left click the column). We find year 1974, 2011 and 1953 had the highest number of human loss. These were the 1974,2011 and 1953 [super outbreaks](http://en.wikipedia.org/wiki/Super_Outbreak).
+
+Let's plot the Annual total number of **`r DF_H[1,1]`** reported since 1950.
+
+```{r Figure3,, fig.width=12, fig.align='left'}
+ggplot(DF_HT,aes(Date,n))+geom_bar(stat="identity",color="black",fill="red")+xlab(label="Year")+ylab(label="Annual Total Number" )+theme(axis.text.x = element_text(angle = 45, hjust = 1))#plot first 5 highest health records
+
+```
+Figure 3. The annual total number of  **`r DF_H[1,1]`** reported in the U.S. since 1950
+
+It seems annual total number of **`r DF_H[1,1]`** increases over the years. However, we must admit that the data only reflects the reported case, which should be related the actual number of occurance but biased by how the data was reported. See [here](http://www.wunderground.com/climate/extreme.asp?MR=1) for more explanations. 
 
 ## Notes
 You may have other sections in your analysis, but Data Processing and Results are required.
@@ -128,6 +321,12 @@ The analysis document must have **at least one figure** containing a plot.
 Your analysis must have **no more than three figures**. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
 
 You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that echo = TRUE for every code chunk (this is the default setting in knitr)
+
+
+```{r clean work}
+## Set options back to original options
+options(op)
+```
 
 ## Resources
 
